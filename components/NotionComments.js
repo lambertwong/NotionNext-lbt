@@ -8,12 +8,20 @@ const formatTime = value => {
   const date = new Date(value)
   const diff = Date.now() - date.getTime()
   if (Number.isNaN(diff)) return ''
-  if (diff < 60 * 1000) return '刚刚'
-  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)} 分钟前`
-  if (diff < 24 * 60 * 60 * 1000) {
-    return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 60 * 1000) return 'Just now'
+  if (diff < 60 * 60 * 1000) {
+    const minutes = Math.floor(diff / 60000)
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
   }
-  return date.toLocaleDateString()
+  if (diff < 24 * 60 * 60 * 1000) {
+    const hours = Math.floor(diff / 3600000)
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  }
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 const getInitial = name => (name || '?').trim().slice(0, 1).toUpperCase()
@@ -44,7 +52,7 @@ const NotionComments = ({ postId }) => {
       if (!response.ok) throw new Error('Failed to load comments')
       setComments(await response.json())
     } catch (error) {
-      setError('评论加载失败，请重试')
+      setError('Unable to load comments. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -84,14 +92,16 @@ const NotionComments = ({ postId }) => {
       setContent('')
       setReplyTo('')
       setNotice(
-        result.pending ? '评论已提交，审核通过后显示。' : '评论已发布。'
+        result.pending
+          ? 'Your comment has been submitted and will appear after approval.'
+          : 'Your comment has been posted.'
       )
       if (replyTo) {
         setExpandedReplies(current => ({ ...current, [replyTo]: true }))
       }
       await loadComments()
     } catch (error) {
-      setError('评论提交失败，请稍后重试')
+      setError('Unable to submit your comment. Please try again later.')
     } finally {
       setSubmitting(false)
     }
@@ -164,7 +174,7 @@ const NotionComments = ({ postId }) => {
               className='text-blue-600 hover:underline dark:text-blue-400'
               onClick={() => startReply(comment)}
             >
-              回复
+              Reply
             </button>
 
             {hasReplies && level === 0 && (
@@ -173,7 +183,9 @@ const NotionComments = ({ postId }) => {
                 className='text-gray-600 hover:underline dark:text-gray-300'
                 onClick={() => toggleReplies(comment.id)}
               >
-                {repliesOpen ? '收起回复' : `查看 ${replyCount} 条回复`}
+                {repliesOpen
+                  ? 'Hide replies'
+                  : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
               </button>
             )}
           </div>
@@ -187,7 +199,7 @@ const NotionComments = ({ postId }) => {
                   className='ml-12 text-sm text-gray-600 hover:underline dark:text-gray-300'
                   onClick={() => showMoreReplies(comment.id)}
                 >
-                  展开更多回复
+                  Show more replies
                 </button>
               )}
             </div>
@@ -202,22 +214,22 @@ const NotionComments = ({ postId }) => {
       <section className='rounded-md border border-gray-200 p-4 dark:border-gray-700'>
         <div className='mb-3 flex items-center justify-between gap-3'>
           <h3 className='text-base font-semibold text-gray-900 dark:text-gray-100'>
-            评论
+            Comments
           </h3>
           <span className='text-sm text-gray-500 dark:text-gray-400'>
-            {comments.length} 条
+            {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
           </span>
         </div>
 
         {replyTarget && (
           <div className='mb-3 flex items-center justify-between gap-3 rounded-md bg-gray-100 px-3 py-2 text-sm dark:bg-gray-800'>
-            <span className='truncate'>正在回复 @{replyTarget.author}</span>
+            <span className='truncate'>Replying to @{replyTarget.author}</span>
             <button
               type='button'
               className='shrink-0 text-gray-600 hover:underline dark:text-gray-300'
               onClick={() => setReplyTo('')}
             >
-              取消
+              Cancel
             </button>
           </div>
         )}
@@ -233,7 +245,7 @@ const NotionComments = ({ postId }) => {
             className='w-full rounded-md border border-gray-300 bg-transparent p-3 text-sm outline-none focus:border-blue-500 dark:border-gray-600'
             maxLength={2000}
             onChange={event => setContent(event.target.value)}
-            placeholder={replyTarget ? '写下回复...' : '写下你的评论...'}
+            placeholder={replyTarget ? 'Write a reply...' : 'Write a comment...'}
             required
             rows={4}
             value={content}
@@ -251,14 +263,14 @@ const NotionComments = ({ postId }) => {
               className='min-w-0 rounded-md border border-gray-300 bg-transparent p-2 text-sm outline-none focus:border-blue-500 dark:border-gray-600'
               maxLength={40}
               onChange={event => setNickname(event.target.value)}
-              placeholder='昵称'
+              placeholder='Name'
               value={nickname}
             />
             <input
               className='min-w-0 rounded-md border border-gray-300 bg-transparent p-2 text-sm outline-none focus:border-blue-500 dark:border-gray-600'
               maxLength={254}
               onChange={event => setAuthor(event.target.value)}
-              placeholder='邮箱，不会公开'
+              placeholder='Email (not publicly displayed)'
               required
               type='email'
               value={author}
@@ -268,7 +280,7 @@ const NotionComments = ({ postId }) => {
               className='rounded-md bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-60'
               disabled={submitting}
             >
-              {submitting ? '提交中...' : replyTarget ? '回复' : '评论'}
+              {submitting ? 'Submitting...' : replyTarget ? 'Reply' : 'Post comment'}
             </button>
           </div>
         </form>
@@ -290,7 +302,7 @@ const NotionComments = ({ postId }) => {
               void loadComments()
             }}
           >
-            重试
+            Retry
           </button>
         </div>
       )}
@@ -316,13 +328,13 @@ const NotionComments = ({ postId }) => {
                   setVisibleRootCount(count => count + ROOT_PAGE_SIZE)
                 }
               >
-                加载更多评论
+                Load more comments
               </button>
             )}
           </>
         ) : (
           <p className='rounded-md border border-dashed border-gray-300 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400'>
-            还没有评论，来写第一条吧。
+            No comments yet. Be the first to comment.
           </p>
         )}
       </section>
